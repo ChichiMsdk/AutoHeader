@@ -1,19 +1,4 @@
-#define _CRT_SECURE_NO_WARNINGS
-#include <stdio.h>
-#include <fcntl.h>
-#include <io.h>
-#include <limits.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h> // pmode for umask
-#include <stdbool.h>
-#include <ctype.h>
-
-#define KB 1024
-#define MB KB * 1000
-// this must contain whole char by whole char .. (idk how)!
-#define READ_SIZE (sizeof(char) * 100)
-
+#include "main.h"
 // error msg
 char msg_file_line[1024];
 size_t g_alloc_size = 0;
@@ -26,10 +11,7 @@ size_t g_alloc_size = 0;
 // delimited by SPACE or NEWLINE
 
 void
-strjoin(char *s1, char *s2, size_t size)
-{
-	strncat(s1, s2, size);
-}
+just_write(char *txt_file, char *content, int buflen);
 
 char *
 get_file_content(char *fname, size_t *size)
@@ -65,7 +47,7 @@ get_file_content(char *fname, size_t *size)
 				exit(1);
 			}
 		}
-		strjoin(total_buf, buf, bytes_r);
+		strncat(total_buf, buf, bytes_r);
 	}
 
 	if (bytes_r < 0)
@@ -81,34 +63,21 @@ get_file_content(char *fname, size_t *size)
 	return total_buf;
 }
 
-int
-skip_line(char *fcontent, int index)
-{
-	int i = 0;
-	while (fcontent[index + i] && fcontent[index + i] != '\n')
-		i++;
-	return index + i;
-}
+char *types[] = {"void", "char", "int", "float", "double", "size_t"};
+int types_len = 6;
 
 bool
-is_there_semi_colon(char *line, int id)
+is_type(char *str)
 {
 	int i = 0;
-	while (line[id + i] && line[id + i] != '\n')
+	while (i < types_len)
 	{
-		if (line[id + i] == ';')
+		if (strcmp(str, types[i]) == 0)
 			return true;
 		i++;
 	}
 	return false;
 }
-
-#define MAX_PARAM 127 // c standard
-#define NAME_LENGTH 256 // arbitrary
-#define MAX_FUN 500
-
-// accounts for each space between params, parenthesis and semi-colon
-#define ARBITRARY_LENGTH (MAX_PARAM * NAME_LENGTH) + MAX_PARAM + 3
 
 /* 
  * This is sensitive to trailing spaces, two spaces or more in a row just fucks it up
@@ -118,79 +87,10 @@ is_there_semi_colon(char *line, int id)
  * 		will not work
  */
 int
-get_functions(char *fcontent, int index)
+get_functions(char **tokens, int len)
 {
-	int i = 0;
-	bool fun = false; // found a function
-	int check = 0;
-
-	/* char function[MAX_FUN][ARBITRARY_LENGTH]; */
-	char **function = malloc(MAX_FUN * (sizeof(char*)));
-	for (int i = 0; i < MAX_FUN; i++)
-	{
-		function[i] = malloc(ARBITRARY_LENGTH * sizeof(char));
-	}
-	int j = 0;
-	int k = 0;
-
-	while (fcontent[index] && !fun)
-	{
-		if (!isalpha(fcontent[index]))
-		{
-			index = skip_line(fcontent, index);
-		}
-		else if (is_there_semi_colon(fcontent, index))
-		{
-			index = skip_line(fcontent, index);
-		}
-		else
-		{
-			// now it MUST be a function
-			// if no parenthesis, must be on next line
-			while (fcontent[index] && fcontent[index] != '{')
-			{
-				if (fcontent[index] == '\t' || fcontent[index] == '\n' || fcontent[index] == ' ')
-					function[k][j] = ' ';
-				else
-					function[k][j] = fcontent[index];
-				index++;
-				j++;
-				if (fcontent[index] == '\n'	|| fcontent[index] == '{')
-				{
-					if (fcontent[index - 1] == ')')
-					{
-						function[k][j] = ';';
-						j++;
-						index++;
-					}
-					else
-					{
-						function[k][j] = ' ';
-						j++;
-						index++;
-					}
-				}
-				if (fcontent[index] == '{')
-					check++;
-				if (check >= 1)
-				{
-					function[k][j] = 0;
-					printf("function[%d]: |%s|\n", k, function[k]);
-					k++;
-					j = 0;
-					check = 0;
-					/* break; */
-				}
-			}
-		}
-		index++;
-	}
-	for (int i = 0; i < MAX_FUN; i++)
-	{
-		free(function[i]);
-	}
-	free(function);
-	return index;
+	
+	return 1;
 }
 
 int
@@ -206,8 +106,23 @@ main(int argc, char *argv[])
 	char *content = get_file_content(argv[1], &buflen);
 	char *txt_file = "main.txt";
 
-	get_functions(content, 0);
+	char **tokens = ft_split(content, " \v\r\t\n");
+	int i = 0;
+	while (tokens[i])
+	{
+		/* printf("%s\n", str[i]); */
+		printf("str[%d]: |%s|\n", i, tokens[i]);
+		i++;
+	}
+	get_functions(tokens, 0);
+	just_write(txt_file, content, buflen);
+	free(content);
 	return 0;
+}
+
+void
+just_write(char *txt_file, char *content, int buflen)
+{
 	int fd = _open(txt_file, _O_RDWR | _O_APPEND | _O_CREAT);
 	if (fd == -1)
 	{
@@ -225,8 +140,6 @@ main(int argc, char *argv[])
 	{
 		_write(fd, &content[i], 1);
 	}
-	free(content);
-	return 0;
 }
 
 void
